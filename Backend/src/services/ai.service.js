@@ -1,85 +1,227 @@
-const { GoogleGenAI } = require("@google/genai");
+const { GoogleGenAI, Type } = require("@google/genai");
 const { z } = require("zod");
-const { zodToJsonSchema } = require("zod-to-json-schema");
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_GENAI_API_KEY
 });
 
+
+// ===============================
+// ZOD SCHEMA
+// ===============================
+
 const interviewReportSchema = z.object({
-    matchScore: z.number().describe(
-        "A score between 0 and 100 indicating how well the candidate profile matches the job description"
-    ),
+
+    matchScore: z
+        .number()
+        .min(0)
+        .max(100),
 
     technicalQuestions: z.array(
         z.object({
-            question: z.string().describe(
-                "The technical question that can be asked in the interview"
-            ),
-
-            intention: z.string().describe(
-                "The intention of the interviewer behind asking this question"
-            ),
-
-            answer: z.string().describe(
-                "How to answer this question, what points to cover, and what approach to take"
-            )
+            question: z.string(),
+            intention: z.string(),
+            answer: z.string()
         })
-    ).describe(
-        "Technical questions that can be asked in the interview along with answer guidance"
     ),
 
     behavioralQuestions: z.array(
         z.object({
-            question: z.string().describe(
-                "The behavioral question that can be asked in the interview"
-            ),
-
-            intention: z.string().describe(
-                "The intention of the interviewer behind asking this question"
-            ),
-
-            answer: z.string().describe(
-                "How to answer this question, what points to cover, and what approach to take"
-            )
+            question: z.string(),
+            intention: z.string(),
+            answer: z.string()
         })
-    ).describe(
-        "Behavioral questions that can be asked in the interview along with answer guidance"
     ),
 
     skillGaps: z.array(
         z.object({
-            skill: z.string().describe(
-                "The skill which the candidate is lacking or needs to improve"
-            ),
-
-            severity: z.enum(["low", "medium", "high"]).describe(
-                "The severity of the skill gap"
-            )
+            skill: z.string(),
+            severity: z.enum([
+                "low",
+                "medium",
+                "high"
+            ])
         })
-    ).describe(
-        "List of skill gaps in the candidate's profile along with severity"
     ),
 
     preparationPlan: z.array(
         z.object({
-            day: z.number().describe(
-                "The day number in the preparation plan, starting from 1"
-            ),
-
-            focus: z.string().describe(
-                "The main focus of this day's preparation"
-            ),
-
-            tasks: z.array(z.string()).describe(
-                "List of tasks to be completed on this day"
-            )
+            day: z.number(),
+            focus: z.string(),
+            tasks: z.array(z.string())
         })
-    ).describe(
-        "A day-wise preparation plan to address the candidate's skill gaps"
     )
 });
 
+
+// ===============================
+// GEMINI RESPONSE SCHEMA
+// ===============================
+
+const geminiResponseSchema = {
+
+    type: Type.OBJECT,
+
+    properties: {
+
+        matchScore: {
+            type: Type.NUMBER
+        },
+
+        technicalQuestions: {
+
+            type: Type.ARRAY,
+
+            items: {
+
+                type: Type.OBJECT,
+
+                properties: {
+
+                    question: {
+                        type: Type.STRING
+                    },
+
+                    intention: {
+                        type: Type.STRING
+                    },
+
+                    answer: {
+                        type: Type.STRING
+                    }
+
+                },
+
+                required: [
+                    "question",
+                    "intention",
+                    "answer"
+                ]
+            }
+        },
+
+
+        behavioralQuestions: {
+
+            type: Type.ARRAY,
+
+            items: {
+
+                type: Type.OBJECT,
+
+                properties: {
+
+                    question: {
+                        type: Type.STRING
+                    },
+
+                    intention: {
+                        type: Type.STRING
+                    },
+
+                    answer: {
+                        type: Type.STRING
+                    }
+
+                },
+
+                required: [
+                    "question",
+                    "intention",
+                    "answer"
+                ]
+            }
+        },
+
+
+        skillGaps: {
+
+            type: Type.ARRAY,
+
+            items: {
+
+                type: Type.OBJECT,
+
+                properties: {
+
+                    skill: {
+                        type: Type.STRING
+                    },
+
+                    severity: {
+                        type: Type.STRING,
+
+                        enum: [
+                            "low",
+                            "medium",
+                            "high"
+                        ]
+                    }
+
+                },
+
+                required: [
+                    "skill",
+                    "severity"
+                ]
+            }
+        },
+
+
+        preparationPlan: {
+
+            type: Type.ARRAY,
+
+            items: {
+
+                type: Type.OBJECT,
+
+                properties: {
+
+                    day: {
+                        type: Type.NUMBER
+                    },
+
+                    focus: {
+                        type: Type.STRING
+                    },
+
+                    tasks: {
+
+                        type: Type.ARRAY,
+
+                        items: {
+                            type: Type.STRING
+                        }
+
+                    }
+
+                },
+
+                required: [
+                    "day",
+                    "focus",
+                    "tasks"
+                ]
+            }
+        }
+
+    },
+
+
+    required: [
+        "matchScore",
+        "technicalQuestions",
+        "behavioralQuestions",
+        "skillGaps",
+        "preparationPlan"
+    ]
+};
+
+
+// ===============================
+// GENERATE INTERVIEW REPORT
+// ===============================
 
 async function generateInterviewReport({
     resume,
@@ -88,56 +230,10 @@ async function generateInterviewReport({
 }) {
 
     const prompt = `
-You are an expert technical interviewer and career coach.
+Generate an interview report based on the candidate information.
 
-Analyze the candidate's resume, self-description, and job description.
-
-Generate a structured interview preparation report containing:
-
-1. matchScore:
-   Give a score between 0 and 100 indicating how well the candidate
-   matches the job description.
-
-2. technicalQuestions:
-   Generate relevant technical interview questions based on:
-   - Candidate's skills
-   - Candidate's projects
-   - Candidate's experience
-   - Technologies mentioned in the job description
-
-   For every question provide:
-   - The question
-   - The interviewer's intention
-   - Guidance on how the candidate should answer
-
-3. behavioralQuestions:
-   Generate relevant behavioral interview questions based on the
-   candidate's background and the job requirements.
-
-   For every question provide:
-   - The question
-   - The interviewer's intention
-   - Guidance on how the candidate should answer
-
-4. skillGaps:
-   Identify skills required by the job description that are missing
-   or weak in the candidate's profile.
-
-   Assign each skill gap one severity:
-   - low
-   - medium
-   - high
-
-5. preparationPlan:
-   Create a day-wise preparation plan that helps the candidate
-   address the identified skill gaps.
-
-IMPORTANT:
-- Return only the structured JSON matching the provided schema.
-- Do not return a general prose interview report.
-- Do not add fields that are not present in the schema.
-- Base the analysis only on the provided candidate information
-  and job description.
+The report must evaluate how well the candidate matches the job
+and prepare the candidate for the interview.
 
 Candidate Resume:
 ${resume}
@@ -147,31 +243,130 @@ ${selfDescription}
 
 Job Description:
 ${jobDescription}
+
+Generate:
+
+1. A match score from 0 to 100.
+
+2. Technical interview questions.
+For every question provide:
+- question
+- intention
+- answer
+
+3. Behavioral interview questions.
+For every question provide:
+- question
+- intention
+- answer
+
+4. Skill gaps.
+For every skill gap provide:
+- skill
+- severity
+
+Severity must be exactly one of:
+low
+medium
+high
+
+5. A day-wise preparation plan.
+For every day provide:
+- day
+- focus
+- tasks
+
+Tasks must be an array of strings.
+
+Return the response according to the provided response schema.
 `;
 
     try {
 
         const response = await ai.models.generateContent({
+
             model: "gemini-3-flash-preview",
 
             contents: prompt,
 
             config: {
+
                 responseMimeType: "application/json",
-                responseSchema: zodToJsonSchema(
-                    interviewReportSchema
-                )
+
+                responseSchema: geminiResponseSchema
             }
         });
 
-        return JSON.parse(repsonse.text);
+
+        // ===============================
+        // RAW RESPONSE
+        // ===============================
+
+        console.log(
+            "================ GEMINI RESPONSE ================"
+        );
+
+        console.log(response.text);
+
+
+        // ===============================
+        // PARSE JSON
+        // ===============================
+
+        const report = JSON.parse(response.text);
+
+
+        // ===============================
+        // CHECK ARRAYS
+        // ===============================
+
+        console.log(
+            "technicalQuestions is array:",
+            Array.isArray(report.technicalQuestions)
+        );
+
+        console.log(
+            "behavioralQuestions is array:",
+            Array.isArray(report.behavioralQuestions)
+        );
+
+        console.log(
+            "skillGaps is array:",
+            Array.isArray(report.skillGaps)
+        );
+
+        console.log(
+            "preparationPlan is array:",
+            Array.isArray(report.preparationPlan)
+        );
+
+
+        // ===============================
+        // ZOD VALIDATION
+        // ===============================
+
+        const validatedReport =
+            interviewReportSchema.parse(report);
+
+
+        console.log(
+            "================ VALIDATED REPORT ================"
+        );
+
+        console.log(
+            JSON.stringify(validatedReport, null, 2)
+        );
+
+
+        return validatedReport;
 
     } catch (error) {
 
         console.error(
-            "Error generating interview report:",
-            error
+            "Error generating interview report:"
         );
+
+        console.error(error);
 
         throw error;
     }

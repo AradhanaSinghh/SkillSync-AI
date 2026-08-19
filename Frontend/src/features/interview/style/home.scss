@@ -1,0 +1,17 @@
+.home{
+    width:100%;
+    min-height:100vh;
+
+    display: flex;
+    justify-content:center;
+    align-items:center;
+
+    
+    .left{
+        background-color: red;
+        align-self:stretch;
+    }
+    .right{
+        background-color: green;
+    }
+}
