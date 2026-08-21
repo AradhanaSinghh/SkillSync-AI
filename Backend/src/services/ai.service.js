@@ -6,11 +6,17 @@ const ai = new GoogleGenAI({
 });
 
 
-// ===============================
-// ZOD SCHEMA
-// ===============================
+// ============================================================
+// ZOD VALIDATION SCHEMA
+// ============================================================
 
 const interviewReportSchema = z.object({
+
+    title: z
+        .string()
+        .describe(
+            "The title of the job for which the interview report is generated"
+        ),
 
     matchScore: z
         .number()
@@ -51,18 +57,23 @@ const interviewReportSchema = z.object({
             tasks: z.array(z.string())
         })
     )
+
 });
 
 
-// ===============================
+// ============================================================
 // GEMINI RESPONSE SCHEMA
-// ===============================
+// ============================================================
 
 const geminiResponseSchema = {
 
     type: Type.OBJECT,
 
     properties: {
+
+        title: {
+            type: Type.STRING
+        },
 
         matchScore: {
             type: Type.NUMBER
@@ -97,9 +108,10 @@ const geminiResponseSchema = {
                     "intention",
                     "answer"
                 ]
-            }
-        },
 
+            }
+
+        },
 
         behavioralQuestions: {
 
@@ -130,9 +142,10 @@ const geminiResponseSchema = {
                     "intention",
                     "answer"
                 ]
-            }
-        },
 
+            }
+
+        },
 
         skillGaps: {
 
@@ -150,7 +163,6 @@ const geminiResponseSchema = {
 
                     severity: {
                         type: Type.STRING,
-
                         enum: [
                             "low",
                             "medium",
@@ -164,9 +176,10 @@ const geminiResponseSchema = {
                     "skill",
                     "severity"
                 ]
-            }
-        },
 
+            }
+
+        },
 
         preparationPlan: {
 
@@ -203,25 +216,28 @@ const geminiResponseSchema = {
                     "focus",
                     "tasks"
                 ]
+
             }
+
         }
 
     },
 
-
     required: [
+        "title",
         "matchScore",
         "technicalQuestions",
         "behavioralQuestions",
         "skillGaps",
         "preparationPlan"
     ]
+
 };
 
 
-// ===============================
+// ============================================================
 // GENERATE INTERVIEW REPORT
-// ===============================
+// ============================================================
 
 async function generateInterviewReport({
     resume,
@@ -230,58 +246,126 @@ async function generateInterviewReport({
 }) {
 
     const prompt = `
+
 Generate an interview report based on the candidate information.
 
 The report must evaluate how well the candidate matches the job
 and prepare the candidate for the interview.
 
 Candidate Resume:
+
 ${resume}
 
+
 Candidate Self Description:
+
 ${selfDescription}
 
+
 Job Description:
+
 ${jobDescription}
 
-Generate:
 
-1. A match score from 0 to 100.
+Generate the following:
 
-2. Technical interview questions.
+
+0. TITLE
+
+Generate a concise title for the interview report.
+
+The title should represent the job role from the job description.
+
+Examples:
+
+"Frontend Developer Interview"
+
+"Backend Developer Interview"
+
+"Full Stack Developer Interview"
+
+"Software Engineer Interview"
+
+
+1. MATCH SCORE
+
+Generate a match score from 0 to 100.
+
+The score should represent how well the candidate's
+skills, experience and background match the job description.
+
+
+2. TECHNICAL INTERVIEW QUESTIONS
+
+Generate relevant technical interview questions based
+on the candidate's resume and the job description.
+
 For every question provide:
+
 - question
 - intention
 - answer
 
-3. Behavioral interview questions.
+
+3. BEHAVIORAL INTERVIEW QUESTIONS
+
+Generate relevant behavioral interview questions.
+
 For every question provide:
+
 - question
 - intention
 - answer
 
-4. Skill gaps.
+
+4. SKILL GAPS
+
+Identify the candidate's important skill gaps
+relative to the job description.
+
 For every skill gap provide:
+
 - skill
 - severity
 
 Severity must be exactly one of:
+
 low
 medium
 high
 
-5. A day-wise preparation plan.
+
+5. PREPARATION PLAN
+
+Generate a day-wise interview preparation plan.
+
 For every day provide:
+
 - day
 - focus
 - tasks
 
 Tasks must be an array of strings.
 
-Return the response according to the provided response schema.
+
+IMPORTANT:
+
+Return ONLY valid JSON.
+
+The JSON must strictly follow the provided response schema.
+
+Do not add markdown.
+
+Do not add explanations outside the JSON.
+
 `;
 
+
     try {
+
+        // ====================================================
+        // GEMINI REQUEST
+        // ====================================================
 
         const response = await ai.models.generateContent({
 
@@ -294,13 +378,15 @@ Return the response according to the provided response schema.
                 responseMimeType: "application/json",
 
                 responseSchema: geminiResponseSchema
+
             }
+
         });
 
 
-        // ===============================
-        // RAW RESPONSE
-        // ===============================
+        // ====================================================
+        // RAW GEMINI RESPONSE
+        // ====================================================
 
         console.log(
             "================ GEMINI RESPONSE ================"
@@ -309,16 +395,30 @@ Return the response according to the provided response schema.
         console.log(response.text);
 
 
-        // ===============================
+        // ====================================================
         // PARSE JSON
-        // ===============================
+        // ====================================================
 
         const report = JSON.parse(response.text);
 
 
-        // ===============================
-        // CHECK ARRAYS
-        // ===============================
+        // ====================================================
+        // DEBUG
+        // ====================================================
+
+        console.log(
+            "================ RESPONSE TYPES ================"
+        );
+
+        console.log(
+            "title:",
+            typeof report.title
+        );
+
+        console.log(
+            "matchScore:",
+            typeof report.matchScore
+        );
 
         console.log(
             "technicalQuestions is array:",
@@ -341,24 +441,37 @@ Return the response according to the provided response schema.
         );
 
 
-        // ===============================
+        // ====================================================
         // ZOD VALIDATION
-        // ===============================
+        // ====================================================
 
         const validatedReport =
             interviewReportSchema.parse(report);
 
+
+        // ====================================================
+        // VALIDATED REPORT
+        // ====================================================
 
         console.log(
             "================ VALIDATED REPORT ================"
         );
 
         console.log(
-            JSON.stringify(validatedReport, null, 2)
+            JSON.stringify(
+                validatedReport,
+                null,
+                2
+            )
         );
 
 
+        // ====================================================
+        // RETURN
+        // ====================================================
+
         return validatedReport;
+
 
     } catch (error) {
 
@@ -369,7 +482,9 @@ Return the response according to the provided response schema.
         console.error(error);
 
         throw error;
+
     }
+
 }
 
 

@@ -5,7 +5,6 @@ const Home = () => {
 
     return (
         <div className='home-page'>
-
             {/* Page Header */}
             <header className='page-header'>
                 <h1>

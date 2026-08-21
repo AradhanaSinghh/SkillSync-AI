@@ -30,7 +30,7 @@ async function authUser(req,res,next){
 
     if(blacklistToken){
         return res.status(401).json({
-            messgae:"token is invalid"
+            message:"token is invalid"
         })
     }
     try{
