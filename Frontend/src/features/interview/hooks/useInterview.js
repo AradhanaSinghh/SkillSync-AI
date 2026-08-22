@@ -13,7 +13,7 @@ export const useInterview = () => {
 
     const context = useContext(InterviewContext);
 
-    const { id } = useParams();
+    const { interviewId } = useParams();
 
     if (!context) {
         throw new Error(
@@ -22,12 +22,16 @@ export const useInterview = () => {
     }
 
     const {
+
         loading,
         setLoading,
         report,
         setReport,
         reports,
-        setReports
+        setReports,
+        pdfLoading,
+        setPdfLoading
+
     } = context;
 
 
@@ -37,7 +41,7 @@ export const useInterview = () => {
 
     const getResumePdf = async (interviewReportId) => {
 
-        setLoading(true);
+        setPdfLoading(true);
 
         try {
 
@@ -78,7 +82,7 @@ export const useInterview = () => {
 
         } finally {
 
-            setLoading(false);
+            setPdfLoading(false);
 
         }
     };
@@ -210,9 +214,9 @@ export const useInterview = () => {
 
     useEffect(() => {
 
-        if (id) {
+        if (interviewId) {
 
-            getReportById(id);
+            getReportById(interviewId);
 
         } else {
 
@@ -220,7 +224,7 @@ export const useInterview = () => {
 
         }
 
-    }, [id]);
+    }, [interviewId]);
 
 
     return {
@@ -230,6 +234,7 @@ export const useInterview = () => {
         generateReport,
         getReports,
         getReportById,
-        getResumePdf
+        getResumePdf,
+        pdfLoading
     };
 };

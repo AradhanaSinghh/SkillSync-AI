@@ -9,8 +9,9 @@ export const InterviewProvider = ({ children }) => {
     const [report, setReport] = useState(null);
 
     const [reports, setReports] = useState([]);
+    
+    const [pdfLoading,setPdfLoading]=useState(false);
 
-    const [pdfLoading, setPdfLoading] = useState(false);
     return (
         <InterviewContext.Provider
             value={{
@@ -22,7 +23,7 @@ export const InterviewProvider = ({ children }) => {
 
                 reports,
                 setReports,
-
+                
                 pdfLoading,
                 setPdfLoading
             }}

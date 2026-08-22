@@ -307,7 +307,7 @@ provided information.
     try {
 
         const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-3.6-flash",
 
             contents: prompt,
 
@@ -583,7 +583,7 @@ Do not wrap the HTML in code fences.
 
         const response = await ai.models.generateContent({
 
-            model: "gemini-3-flash-preview",
+            model: "gemini-3.6-flash",
 
             contents: prompt,
 

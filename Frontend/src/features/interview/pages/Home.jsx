@@ -8,11 +8,24 @@ const Home = () => {
     const [selfDescription,setSelfDescription]=useState("");
     const resumeInputRef=useRef();
     const navigate=useNavigate();
-    
     const handleGenerateReport=async ()=>{
         const resumeFile=resumeInputRef.current.files[0];
         const data=await generateReport({jobDescription,selfDescription,resumeFile});
         navigate(`/interview/${data._id}`)
+    }
+    if (loading) {
+
+        return (
+
+            <main className="loading-screen">
+
+                <h1>
+                    Loading your interview plan...
+                </h1>
+
+            </main>
+
+        );
     }
     return (
         <div className='home-page'>
